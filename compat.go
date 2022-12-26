@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func registerValidArgsFunction(cmd *cobra.Command) {
@@ -15,13 +16,14 @@ func registerValidArgsFunction(cmd *cobra.Command) {
 	}
 }
 
-func registerFlagCompletion(cmd *cobra.Command, actions ActionMap) {
-	for name, action := range actions {
-		cmd.RegisterFlagCompletionFunc(name, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			action := action.Invoke(Context{Args: args, CallbackValue: toComplete})
+func registerFlagCompletion(cmd *cobra.Command) {
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		cmd.RegisterFlagCompletionFunc(f.Name, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			a := storage.getFlag(cmd, f.Name)
+			action := a.Invoke(Context{Args: args, CallbackValue: toComplete})
 			return cobraValuesFor(action), cobraDirectiveFor(action)
 		})
-	}
+	})
 }
 
 func cobraValuesFor(action InvokedAction) []string {
@@ -38,11 +40,11 @@ func cobraValuesFor(action InvokedAction) []string {
 
 func cobraDirectiveFor(action InvokedAction) cobra.ShellCompDirective {
 	directive := cobra.ShellCompDirectiveNoFileComp
-	if action.nospace {
-		directive = cobra.ShellCompDirectiveNoSpace
-	}
-	if action.skipcache {
-		directive = directive & cobra.ShellCompDirectiveError
+	for _, val := range action.rawValues {
+		if action.meta.Nospace.Matches(val.Value) {
+			directive = directive | cobra.ShellCompDirectiveNoSpace
+			break
+		}
 	}
 	return directive
 }

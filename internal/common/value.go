@@ -1,38 +1,70 @@
+// Package common code
 package common
 
-import "strings"
+import (
+	"sort"
+	"strings"
 
-// RawValue represents a completion candidate
+	"github.com/rsteube/carapace/pkg/style"
+)
+
+// RawValue represents a completion candidate.
 type RawValue struct {
 	Value       string
 	Display     string
-	Description string
+	Description string `json:",omitempty"`
+	Style       string `json:",omitempty"`
+	Tag         string `json:",omitempty"`
 }
 
-// TrimmedDescription returns the trimmed description
+// TrimmedDescription returns the trimmed description.
 func (r RawValue) TrimmedDescription() string {
 	maxLength := 80
 	description := strings.SplitN(r.Description, "\n", 2)[0]
-	description = strings.TrimSpace(r.Description)
-	if len(description) > maxLength {
-		description = description[:maxLength-3] + "..."
+	description = strings.TrimSpace(description)
+	if len([]rune(description)) > maxLength {
+		description = string([]rune(description)[:maxLength-3]) + "..."
 	}
 	return description
 }
 
-// RawValues is an alias for []RawValue
+// RawValues is an alias for []RawValue.
 type RawValues []RawValue
 
-// RawValuesFrom creates RawValues from given values
+// RawValuesFrom creates RawValues from given values.
 func RawValuesFrom(values ...string) RawValues {
 	rawValues := make([]RawValue, len(values))
 	for index, val := range values {
-		rawValues[index] = RawValue{Value: val, Display: val}
+		rawValues[index] = RawValue{Value: val, Display: val, Style: style.Default}
 	}
 	return rawValues
 }
 
-// FilterPrefix filters values with given prefix
+func (r RawValues) contains(s string) bool {
+	for _, value := range r {
+		if value.Value == s {
+			return true
+		}
+	}
+	return false
+}
+
+// Filter filters values.
+func (r RawValues) Filter(values ...string) RawValues {
+	toremove := make(map[string]bool)
+	for _, v := range values {
+		toremove[v] = true
+	}
+	filtered := make([]RawValue, 0)
+	for _, rawValue := range r {
+		if _, ok := toremove[rawValue.Value]; !ok {
+			filtered = append(filtered, rawValue)
+		}
+	}
+	return filtered
+}
+
+// FilterPrefix filters values with given prefix.
 func (r RawValues) FilterPrefix(prefix string) RawValues {
 	filtered := make(RawValues, 0)
 	for _, r := range r {
@@ -43,25 +75,34 @@ func (r RawValues) FilterPrefix(prefix string) RawValues {
 	return filtered
 }
 
-// ByValue alias to filter by value
+func (r RawValues) EachTag(f func(tag string, values RawValues)) {
+	tagGroups := make(map[string]RawValues)
+	for _, val := range r {
+		if _, exists := tagGroups[val.Tag]; !exists {
+			tagGroups[val.Tag] = make(RawValues, 0)
+		}
+		tagGroups[val.Tag] = append(tagGroups[val.Tag], val)
+	}
+
+	tags := make([]string, 0)
+	for tag := range tagGroups {
+		tags = append(tags, tag)
+	}
+	sort.Strings(tags)
+
+	for _, tag := range tags {
+		f(tag, tagGroups[tag])
+	}
+}
+
+// ByValue alias to filter by value.
 type ByValue []RawValue
 
 func (a ByValue) Len() int           { return len(a) }
 func (a ByValue) Less(i, j int) bool { return a[i].Value < a[j].Value }
 func (a ByValue) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
-// Filter filters values with given prefix
-func (a ByValue) Filter(prefix string) []RawValue {
-	filtered := make([]RawValue, 0, len(a))
-	for _, v := range a {
-		if strings.HasPrefix(v.Value, prefix) {
-			filtered = append(filtered, v)
-		}
-	}
-	return filtered
-}
-
-// ByDisplay alias to filter by display
+// ByDisplay alias to filter by display.
 type ByDisplay []RawValue
 
 func (a ByDisplay) Len() int           { return len(a) }

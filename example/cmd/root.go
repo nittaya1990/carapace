@@ -8,13 +8,13 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "example",
 	Short: "example completion",
-	CompletionOptions: cobra.CompletionOptions{
-		DisableDefaultCmd: true,
-	},
 }
 
-// Execute executes cmd
+// Execute executes cmd.
 func Execute() error {
+	carapace.Override(carapace.Opts{
+		BridgeCompletion: true,
+	})
 	return rootCmd.Execute()
 }
 
@@ -28,4 +28,10 @@ func init() {
 	carapace.Gen(rootCmd).FlagCompletion(carapace.ActionMap{
 		"persistentFlag": carapace.ActionValues("p1", "p2", "p3"),
 	})
+
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "main", Title: "Main Commands"},
+		&cobra.Group{ID: "modifier", Title: "Modifier Commands"},
+		&cobra.Group{ID: "test", Title: "Test Commands"},
+	)
 }

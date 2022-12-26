@@ -21,12 +21,20 @@ eval (command _carapace | slurp)
 # fish
 command _carapace | source
 
+# nushell (update config.nu according to output)
+command _carapace nushell
+
 # oil
 source <(command _carapace)
 
 # powershell
+Set-PSReadLineOption -Colors @{ "Selection" = "`e[7m" }
 Set-PSReadlineKeyHandler -Key Tab -Function MenuComplete
 command _carapace | Out-String | Invoke-Expression
+
+# tcsh
+set autolist
+eval `command _carapace tcsh`
 
 # xonsh
 COMPLETIONS_CONFIRM=True

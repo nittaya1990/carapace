@@ -7,11 +7,13 @@ commands:
           name: "build"
           command: |
             go get -t -v ./...
-            PATH=$PATH:$PWD/bin go test -coverprofile=coverage.out -v ./...
             go build
             go vet
             cd example
             go build .
+            cd ..
+            PATH=$PATH:$PWD/example go test -coverprofile=coverage.out -v ./...
+            sed -i '/^github.com\/rsteube\/carapace\/third_party/d' coverage.out 
       - run:
           name: "shellcheck bash"
           command: shellcheck -e SC2046,SC2206,SC2207 <(./example/example _carapace bash)
@@ -21,16 +23,20 @@ commands:
       - run:
           name: "PSScriptAnayzer powershell"
           command: |
-            example _carapace powershell > /tmp/powershell.ps1
+            ./example/example _carapace powershell > /tmp/powershell.ps1
             pwsh -Command "Invoke-ScriptAnalyzer -Path /tmp/powershell.ps1" -EnableExit
       - run:
           name: "shellcheck zsh"
           command: shellcheck -e SC2148,SC2154 <(./example/example _carapace zsh)
-  codecov:
+  coveralls:
     steps:
       - run:
-          name: "upload coverage"
-          command: codecov
+          name: "Install goveralls"
+          command: go install github.com/mattn/goveralls@latest
+      - run:
+          name: "Send coverage"
+          command: goveralls -coverprofile=coverage.out -service=circleci -repotoken ${COVERALLS_TOKEN}
+
 
 jobs:
   current:
@@ -41,7 +47,7 @@ jobs:
     steps:
       - checkout
       - run_tests
-      - codecov
+      - coveralls
       - run:
           name: "Check formatting"
           command: diff -u <(echo -n) <(gofmt -d -s .)
@@ -68,7 +74,7 @@ jobs:
       - checkout
       - run:
           name: "replace pflag with fork"
-          command: echo 'replace github.com/spf13/pflag => github.com/cornfeedhobo/pflag v1.1.0' >> go.mod
+          command: echo 'replace github.com/spf13/pflag => github.com/rsteube/carapace-pflag v0.0.3' >> go.mod
       - run_tests
   doc:
     docker:

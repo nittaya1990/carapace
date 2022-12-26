@@ -13,9 +13,9 @@ func TestBatch(t *testing.T) {
 		ActionValues("C", "D"),
 	)
 	expected := InvokedAction{
-		rawValues: common.RawValuesFrom("A", "B", "C", "D"),
-		nospace:   false,
-		skipcache: false,
+		Action{
+			rawValues: common.RawValuesFrom("A", "B", "C", "D"),
+		},
 	}
 	actual := b.Invoke(Context{}).Merge()
 	assertEqual(t, expected, actual)
@@ -26,9 +26,9 @@ func TestBatchSingle(t *testing.T) {
 		ActionValues("A", "B"),
 	)
 	expected := InvokedAction{
-		rawValues: common.RawValuesFrom("A", "B"),
-		nospace:   false,
-		skipcache: false,
+		Action{
+			rawValues: common.RawValuesFrom("A", "B"),
+		},
 	}
 	actual := b.Invoke(Context{}).Merge()
 	assertEqual(t, expected, actual)
@@ -37,9 +37,9 @@ func TestBatchSingle(t *testing.T) {
 func TestBatchNone(t *testing.T) {
 	b := Batch()
 	expected := InvokedAction{
-		rawValues: common.RawValuesFrom(),
-		nospace:   false,
-		skipcache: false,
+		Action{
+			rawValues: common.RawValuesFrom(),
+		},
 	}
 	actual := b.Invoke(Context{}).Merge()
 	assertEqual(t, expected, actual)
@@ -52,9 +52,9 @@ func TestBatchToA(t *testing.T) {
 		ActionValues("C", "D"),
 	)
 	expected := InvokedAction{
-		rawValues: common.RawValuesFrom("A", "B", "C", "D"),
-		nospace:   false,
-		skipcache: false,
+		Action{
+			rawValues: common.RawValuesFrom("A", "B", "C", "D"),
+		},
 	}
 	actual := b.ToA().Invoke(Context{})
 	assertEqual(t, expected, actual)

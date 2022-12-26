@@ -1,3 +1,4 @@
+// Package cache provides disk cache for Actions
 package cache
 
 import (
@@ -5,9 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"os/user"
 	"strconv"
 	"strings"
 	"time"
@@ -17,38 +16,35 @@ import (
 	"github.com/rsteube/carapace/pkg/cache"
 )
 
-// Write persistests given values to file as json
+// Write persistests given values to file as json.
 func Write(file string, rawValues []common.RawValue) (err error) {
 	var m []byte
 	if m, err = json.Marshal(rawValues); err == nil {
-		err = ioutil.WriteFile(file, m, 0600)
+		err = os.WriteFile(file, m, 0600)
 	}
 	return
 }
 
-// Load loads values from file unless modification date exceeds timeout
+// Load loads values from file unless modification date exceeds timeout.
 func Load(file string, timeout time.Duration) (rawValues []common.RawValue, err error) {
 	var content []byte
 	var stat os.FileInfo
 	if stat, err = os.Stat(file); os.IsNotExist(err) || (timeout > 0 && stat.ModTime().Add(timeout).Before(time.Now())) {
 		err = errors.New("not exists or timeout exceeded")
 	} else {
-		if content, err = ioutil.ReadFile(file); err == nil {
+		if content, err = os.ReadFile(file); err == nil {
 			err = json.Unmarshal(content, &rawValues)
 		}
 	}
 	return
 }
 
-// TempDir creates a temporary folder for current user and returns the path
-func TempDir(name string) (dir string, err error) {
-	var u *user.User
-	if u, err = user.Current(); err == nil {
-		dir = fmt.Sprintf("%v/carapace", os.TempDir())
-		if err = os.MkdirAll(dir, 0777); err == nil {
-			dir = fmt.Sprintf("%v/%v/%v/%v", dir, u.Username, uid.Executable(), name)
-			err = os.MkdirAll(dir, 0700)
-		}
+// CacheDir creates a cache folder for current user and returns the path.
+func CacheDir(name string) (dir string, err error) {
+	var userCacheDir string
+	if userCacheDir, err = os.UserCacheDir(); err == nil {
+		dir = fmt.Sprintf("%v/carapace/%v/%v", userCacheDir, uid.Executable(), name)
+		err = os.MkdirAll(dir, 0700)
 	}
 	return
 }
@@ -65,7 +61,7 @@ func File(callerFile string, callerLine int, keys ...cache.Key) (file string, er
 		}
 		ids = append(ids, id)
 	}
-	if dir, err := TempDir(uid); err == nil {
+	if dir, err := CacheDir(uid); err == nil {
 		file = dir + "/" + uidKeys(ids...)
 	}
 	return

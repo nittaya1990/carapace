@@ -6,9 +6,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
-// TraverseLenient traverses the command tree but filters errors regarding arguments currently being completed
+// TraverseLenient traverses the command tree but filters errors regarding arguments currently being completed.
 func TraverseLenient(cmd *cobra.Command, args []string) (*cobra.Command, []string, error) {
 	a := args
 
@@ -33,11 +34,21 @@ func TraverseLenient(cmd *cobra.Command, args []string) (*cobra.Command, []strin
 	for _, name := range append(targetCmd.Aliases, targetCmd.Name()) {
 		if len(args) > 0 &&
 			name == args[len(args)-1] &&
-			len(targetCmd.Flags().Args()) == 0 {
-			targetCmd = targetCmd.Parent() // when argument currently being completed is fully matching a subcommand it will be returned, so fix this to parent
+			len(targetCmd.Flags().Args()) == 0 &&
+			!anyFlagChanged(targetCmd) {
+			if targetCmd.HasParent() {
+				targetCmd = targetCmd.Parent() // when argument currently being completed is fully matching a subcommand it will be returned, so fix this to parent
+			}
 		}
 	}
 	return targetCmd, targetCmd.Flags().Args(), filterError(args, err)
+}
+
+func anyFlagChanged(cmd *cobra.Command) (changed bool) {
+	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
+		changed = changed || f.Changed
+	})
+	return
 }
 
 func filterError(args []string, err error) error {
@@ -53,13 +64,28 @@ func filterError(args []string, err error) error {
 		return nil
 	}
 
-	if strings.HasPrefix(current, "-") && msg == fmt.Sprintf("flag needs an argument: '%v' in -%v", current[len(current)-1:], current[len(current)-1:]) {
+	if strings.HasPrefix(current, "-") && msg == fmt.Sprintf("flag needs an argument: '%v' in -%v", current[len(current)-1:], current[len(current)-1:]) { // spf13/pflag
+		// ignore shorthand flag currently being completed
+		return nil
+	}
+
+	if strings.HasPrefix(current, "-") && msg == fmt.Sprintf(`flag needs an argument: "%v" in -%v`, current[len(current)-1:], current[len(current)-1:]) { // rsteube/carapace-pflag: shorthand chain
+		// ignore shorthand flag currently being completed
+		return nil
+	}
+
+	if strings.HasPrefix(current, "-") && msg == fmt.Sprintf(`flag needs an argument: "%v" in %v`, current[1:], current) { // rsteube/carapace-pflag: long shorthand
 		// ignore shorthand flag currently being completed
 		return nil
 	}
 
 	if strings.HasPrefix(current, "--") && msg == fmt.Sprintf("unknown flag: %v", current) {
 		// ignore long flag curently being completed
+		return nil
+	}
+
+	if strings.HasPrefix(current, "-") && msg == fmt.Sprintf("unknown shorthand flag: %v", current) { // rsteube/carapace-pflag: long shorthand
+		// ignore non-posix shorthand flag currently being completed
 		return nil
 	}
 

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/rsteube/carapace"
@@ -9,7 +9,7 @@ import (
 )
 
 func testScript(t *testing.T, shell string, file string) {
-	if content, err := ioutil.ReadFile(file); err != nil {
+	if content, err := os.ReadFile(file); err != nil {
 		t.Fatal("failed to read fixture file")
 	} else {
 		rootCmd.InitDefaultHelpCmd()
@@ -22,12 +22,20 @@ func TestBash(t *testing.T) {
 	testScript(t, "bash", "./_test/bash.sh")
 }
 
+func TestBashBle(t *testing.T) {
+	testScript(t, "bash-ble", "./_test/bash-ble.sh")
+}
+
 func TestElvish(t *testing.T) {
 	testScript(t, "elvish", "./_test/elvish.elv")
 }
 
 func TestFish(t *testing.T) {
 	testScript(t, "fish", "./_test/fish.fish")
+}
+
+func TestNushell(t *testing.T) {
+	testScript(t, "nushell", "./_test/nushell.nu")
 }
 
 func TestOil(t *testing.T) {

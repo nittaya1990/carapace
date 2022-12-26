@@ -2,8 +2,8 @@ package main
 
 import (
 	"bytes"
-	exec "golang.org/x/sys/execabs"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -34,7 +34,10 @@ func doComplete(t *testing.T, shell string, cmdline string, contained ...string)
 			)
 			cmd = exec.Command("./_test/invoke_powershell", replacer.Replace(cmdline))
 		case "xonsh":
-			cmd = exec.Command("./_test/invoke_xonsh", cmdline)
+			replacer := strings.NewReplacer(
+				`\ `, `" "`, // TODO simple escape fix
+			)
+			cmd = exec.Command("./_test/invoke_xonsh", replacer.Replace(cmdline))
 		case "zsh":
 			cmd = exec.Command("./_test/invoke_zsh", cmdline)
 		}
@@ -56,34 +59,21 @@ func doComplete(t *testing.T, shell string, cmdline string, contained ...string)
 }
 
 var tests = map[string]string{
-	`example -ap `:              "action",
-	`example action `:           "p",
-	`example action -z`:         "unknown",
-	`example action --fail `:    "unknown",
-	`example --fail acti`:       "unknown",
-	`example -z acti`:           "unknown",
-	`example action positional`: "positional1",
+	`example -ap `:               "action",
+	`example action `:            "p",
+	`example action positional`:  "positional1",
+	`example action positional1`: "positional1 with space",
+	//`example action "positional1 `: "positional1 with space", // TODO this test does not yet work with bash as it's missing quote handling in the snippet
 	//`example action --`:                                            "--values_described", // weird: causes regex match in expect/xonsh not to work
-	`example action --optarg `:           "p",
-	`example action --optarg positional`: "positional1",
-	`example action --optar`:             "--optarg",
-	`example action --optarg=`:           "blue",
 	//`example action -`:                                             "-o", // weird: causes regex match in expect/xonsh not to work
-	`example action -o`:                                            "v",
-	`example action -op`:                                           "d",
-	`example action -o `:                                           "p",
-	`example action -o positional`:                                 "positional1",
-	`example action -o=`:                                           "unknown", // seems shorthand flag should not accept optional arguments and `=` is seen as another flag
-	`example action -fgo=`:                                         "blue",
-	`example action -fgo= `:                                        "p",
-	`example condition `:                                           "ERR",
-	`example condition --required `:                                "valid",
-	`example condition --required invalid `:                        "ERR",
-	`example condition --required valid `:                          "fulfilled",
-	`example callback `:                                            "callback",
-	`example callback callback`:                                    "callback1",
-	`example callback --callback `:                                 "cb",
-	`example callback --callback cb`:                               "cb1",
+	`example special --optarg `:                                    "p",
+	`example special --optarg positional`:                          "positional1",
+	`example special --optar`:                                      "--optarg",
+	`example special --optarg=`:                                    "optarg",
+	`example special -o`:                                           "count flag",
+	`example special -oc`:                                          "count flag",
+	`example special -o `:                                          "p",
+	`example special -o pos`:                                       "positional",
 	`example multiparts `:                                          "VALUE",
 	`example multiparts -`:                                         "-c",
 	`example multiparts --`:                                        "--comma",
@@ -116,11 +106,23 @@ var tests = map[string]string{
 	`example multiparts VALUE=one,DIRECTORY=`:                      "/",
 }
 
+var testsIntegratedMessage = map[string]string{
+	`example action -z`:          "unknown",
+	`example action --fail `:     "unknown",
+	`example --fail acti`:        "unknown",
+	`example -z acti`:            "unknown",
+	`example flag -o=`:           "unknown", // seems shorthand flag should not accept optional arguments and `=` is seen as another flag
+	`example action --callback `: "values flag is not set",
+}
+
 func TestBash(t *testing.T) {
 	if err := exec.Command("bash", "--version").Run(); err != nil {
 		t.Skip("skipping bash")
 	}
 	for cmdline, text := range tests {
+		doComplete(t, "bash", cmdline, text)
+	}
+	for cmdline, text := range testsIntegratedMessage {
 		doComplete(t, "bash", cmdline, text)
 	}
 }
@@ -141,6 +143,9 @@ func TestFish(t *testing.T) {
 	for cmdline, text := range tests {
 		doComplete(t, "fish", cmdline, text)
 	}
+	for cmdline, text := range testsIntegratedMessage {
+		doComplete(t, "fish", cmdline, text)
+	}
 }
 
 func TestXonsh(t *testing.T) {
@@ -148,6 +153,9 @@ func TestXonsh(t *testing.T) {
 		t.Skip("skipping xonsh")
 	}
 	for cmdline, text := range tests {
+		doComplete(t, "xonsh", cmdline, text)
+	}
+	for cmdline, text := range testsIntegratedMessage {
 		doComplete(t, "xonsh", cmdline, text)
 	}
 }
@@ -159,16 +167,22 @@ func TestOil(t *testing.T) {
 	for cmdline, text := range tests {
 		doComplete(t, "oil", cmdline, text)
 	}
+	for cmdline, text := range testsIntegratedMessage {
+		doComplete(t, "oil", cmdline, text)
+	}
 }
 
-func TestPowershell(t *testing.T) {
-	if err := exec.Command("pwsh", "--version").Run(); err != nil {
-		t.Skip("skipping powershell")
-	}
-	for cmdline, text := range tests {
-		doComplete(t, "powershell", cmdline, text)
-	}
-}
+//func TestPowershell(t *testing.T) {
+//	if err := exec.Command("pwsh", "--version").Run(); err != nil {
+//		t.Skip("skipping powershell")
+//	}
+//	for cmdline, text := range tests {
+//		doComplete(t, "powershell", cmdline, text)
+//	}
+//	for cmdline, text := range testsIntegratedMessage {
+//		doComplete(t, "powershell", cmdline, text)
+//	}
+//}
 
 func TestZsh(t *testing.T) {
 	if err := exec.Command("zsh", "--version").Run(); err != nil {

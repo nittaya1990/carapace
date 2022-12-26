@@ -1,21 +1,30 @@
+// Package ps provides shell determination by process name
 package ps
 
 import (
 	"os"
 	"strings"
 
-	"github.com/mitchellh/go-ps"
+	"github.com/rsteube/carapace/third_party/github.com/mitchellh/go-ps"
 )
 
+// DetermineShell determines shell by parent process name.
 func DetermineShell() string {
 	process, err := ps.FindProcess(os.Getpid())
+	if err != nil {
+		return ""
+	}
 	for {
 		if process, err = ps.FindProcess(process.PPid()); err != nil || process == nil {
 			return ""
 		}
 
-		switch strings.SplitN(strings.TrimSuffix(process.Executable(), ".exe"), "-", 2)[0] {
+		executable := process.Executable()
+		switch strings.SplitN(strings.TrimSuffix(executable, ".exe"), "-", 2)[0] {
 		case "bash":
+			if isBLE() {
+				return "bash-ble"
+			}
 			return "bash"
 		case "elvish":
 			return "elvish"
@@ -39,6 +48,26 @@ func DetermineShell() string {
 			return "xonsh"
 		case "zsh":
 			return "zsh"
+		default:
+			if strings.Contains(executable, "xonsh-wrapped") { // nix packaged version
+				return "xonsh"
+			}
 		}
 	}
+}
+
+func isBLE() bool {
+	bleEnvs := []string{
+		"_ble_util_fd_null",
+		"_ble_util_fd_stderr",
+		"_ble_util_fd_stdin",
+		"_ble_util_fd_stdout",
+		"_ble_util_fd_zero",
+	}
+	for _, e := range bleEnvs {
+		if _, ok := os.LookupEnv(e); ok {
+			return true
+		}
+	}
+	return false
 }
